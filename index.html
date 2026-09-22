@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>歌曲分析评分工具</title>
+<style>
+:root{
+  --bg:#0f1115;
+  --panel:#171a21;
+  --panel2:#1d212a;
+  --border:#282d38;
+  --text:#e6e9ef;
+  --muted:#8b93a5;
+  --dim:#5a6377;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  line-height:1.6;
+  padding:28px 20px 80px;
+  -webkit-font-smoothing:antialiased;
+}
+.shell{max-width:1180px;margin:0 auto}
+
+/* ---------- header ---------- */
+header{margin-bottom:24px}
+h1{font-size:22px;font-weight:600;letter-spacing:.5px}
+h1 span{color:var(--muted);font-weight:400;font-size:15px;margin-left:10px}
+.notice{
+  margin-top:14px;
+  padding:12px 16px;
+  background:rgba(94,234,212,.06);
+  border-left:3px solid #2fc4b2;
+  border-radius:0 8px 8px 0;
+  font-size:13px;
+  color:#9fb8b5;
+}
+.notice b{color:#5eead4;font-weight:600}
+
+/* ---------- layout ---------- */
+.wrap{display:grid;grid-template-columns:1fr 350px;gap:20px;align-items:start}
+@media(max-width:1000px){.wrap{grid-template-columns:1fr}}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px;
+}
+
+/* ---------- song info ---------- */
+.song-info{display:grid;grid-template-columns:1fr 1fr 110px;gap:12px;margin-bottom:20px}
+@media(max-width:640px){.song-info{grid-template-columns:1fr}}
+.field label{display:block;font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:6px}
+.field input{
+  width:100%;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;
+  font-family:inherit;outline:none;transition:border-color .15s;
+}
+.field input:focus{border-color:#2fc4b2}
+.field input.err{border-color:#e5534b}
+
+/* ---------- plagiarism switch ---------- */
+.verdict-switch{
+  grid-column:1/-1;display:flex;align-items:center;gap:10px;
+  padding:11px 14px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.verdict-switch:hover{border-color:#3a4150}
+.verdict-switch.on{border-color:#e5534b;background:rgba(229,83,75,.07);color:#e8a09b}
+.verdict-switch input{accent-color:#e5534b;width:15px;height:15px;cursor:pointer}
+
+/* ---------- dimension ---------- */
+.dim{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 18px;
+  margin-bottom:14px;
+  transition:opacity .2s,border-color .2s;
+}
+.dim.excluded{opacity:.42}
+.dim-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.dim-name{font-size:15px;font-weight:600;letter-spacing:.5px}
+.dim-weight{
+  font-size:11px;color:var(--muted);margin-left:9px;
+  background:var(--panel2);padding:2px 7px;border-radius:4px;
+  border:1px solid var(--border);
+}
+.dim-score{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:6px;border-radius:3px;background:#2a2f3a;
+  outline:none;cursor:pointer;display:block;margin:2px 0 10px;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;background:#fff;
+  border:2px solid var(--bg);cursor:pointer;
+  box-shadow:0 0 0 1px rgba(255,255,255,.25);
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;background:#fff;
+  border:2px solid var(--bg);cursor:pointer;
+}
+
+.band{font-size:12.5px;margin-bottom:10px;min-height:20px}
+.band b{font-weight:600;margin-right:6px}
+.band span{color:var(--muted)}
+
+.dim textarea{
+  width:100%;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px;
+  font-family:inherit;line-height:1.55;resize:vertical;outline:none;
+  transition:border-color .15s;
+}
+.dim textarea:focus{border-color:#2fc4b2}
+.dim textarea::placeholder{color:#565e70}
+
+.na{
+  display:flex;align-items:center;gap:7px;margin-top:9px;
+  font-size:12px;color:var(--muted);cursor:pointer;user-select:none;
+}
+.na input{accent-color:#5a6377;width:13px;height:13px;cursor:pointer}
+
+.warn{
+  font-size:12px;color:#e0a33c;margin-top:8px;display:none;
+}
+.warn.show{display:block}
+
+/* ---------- result ---------- */
+.result{position:sticky;top:24px}
+@media(max-width:1000px){.result{position:static}}
+
+.total-wrap{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.total-score{
+  font-size:44px;font-weight:700;letter-spacing:-1.5px;
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.grade{
+  font-size:22px;font-weight:700;width:44px;height:44px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;letter-spacing:0;
+}
+.grade-label{font-size:12.5px;color:var(--muted);margin-bottom:18px}
+
+.bars{display:flex;flex-direction:column;gap:9px;margin-bottom:18px}
+.bar-row{display:grid;grid-template-columns:38px 1fr 34px;align-items:center;gap:9px;font-size:12px}
+.bar-name{color:var(--muted)}
+.bar-track{height:5px;background:#232833;border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .25s ease,background .25s}
+.bar-val{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.bar-row.excluded .bar-name,.bar-row.excluded .bar-val{color:#4a5162;text-decoration:line-through}
+
+.result textarea{
+  width:100%;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;
+  font-family:inherit;line-height:1.55;resize:vertical;outline:none;
+  transition:border-color .15s;margin-bottom:14px;
+}
+.result textarea:focus{border-color:#2fc4b2}
+.result textarea::placeholder{color:#565e70}
+
+.actions{display:flex;gap:9px}
+button{
+  flex:1;padding:11px;border-radius:8px;border:1px solid transparent;
+  font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .15s;letter-spacing:.3px;
+}
+#copyBtn{background:#2fc4b2;color:#062521}
+#copyBtn:hover{background:#3dd8c6}
+.ghost{background:transparent;border-color:var(--border);color:var(--muted);flex:0 0 88px}
+.ghost:hover{border-color:#3a4150;color:var(--text)}
+
+/* ---------- scrollbar ---------- */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2c323e;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#3a4150}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <h1>歌曲分析评分工具<span>v1.0</span></h1>
+    <div class="notice">
+      <b>本工具不"听"歌。</b>它把评分框架做成可审计的表单——每条评分必须绑定具体的音乐事件。
+      基准线 5.0 = 技术合格但无突出贡献，因此绝大多数商业发行作品应落在 <b>4.5–6.5</b> 区间。
+      高于 7.0 的维度必须提供可独立验证的证据。
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ============ LEFT ============ -->
+    <div>
+      <section class="card song-info" style="margin-bottom:20px">
+        <div class="field">
+          <label>歌名 *</label>
+          <input id="songName" placeholder="必填">
+        </div>
+        <div class="field">
+          <label>艺术家</label>
+          <input id="artist" placeholder="演唱者 / 乐队">
+        </div>
+        <div class="field">
+          <label>发行年份</label>
+          <input id="year" placeholder="2003">
+        </div>
+        <label class="verdict-switch" id="plagWrap">
+          <input type="checkbox" id="plag">
+          <span>作曲重合判定（一票否决）— 与已知作品存在实质性旋律/和声重合时勾选，作曲封顶 2.0</span>
+        </label>
+      </section>
+
+      <div id="dimensions"></div>
+    </div>
+
+    <!-- ============ RIGHT ============ -->
+    <aside class="card result">
+      <div class="total-wrap">
+        <div class="total-score" id="totalScore">5.00</div>
+        <div class="grade" id="gradeBadge">C</div>
+      </div>
+      <div class="grade-label" id="gradeLabel">有明确意图，但整体未兑现</div>
+
+      <div class="bars" id="bars"></div>
+
+      <textarea id="verdict" rows="3" placeholder="核心判断（≤50字）：指出最关键的一个优点或缺陷"></textarea>
+
+      <div class="actions">
+        <button id="copyBtn">复制报告</button>
+        <button id="resetBtn" class="ghost">重置</button>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   维度定义
+   ============================================================ */
+const DIMS = [
+  {
+    key:'compose', name:'作曲', weight:0.30,
+    hint:'例如：副歌第2句的音程跳跃由六度收窄为四度，削弱了主歌建立的情绪势能',
+    bands:[
+      {max:2.9, label:'结构性缺陷', desc:'旋律与已知作品实质性重合，或轮廓近乎随机，无重复性记忆点。'},
+      {max:4.9, label:'套路化',     desc:'可辨识但高度依赖常见进行，转调/离调为装饰性，副歌与主歌缺乏动力对比。'},
+      {max:6.4, label:'技术合格',   desc:'起承转合清晰，但缺乏意外的走向；换一首同类歌曲不会有损失。'},
+      {max:7.9, label:'有作者性',   desc:'旋律有个性特征；和声或节奏至少一项承担结构性功能。'},
+      {max:8.9, label:'不可替换',   desc:'存在至少一处"更改即显著下降"的音乐决策。'},
+      {max:10,  label:'自洽系统',   desc:'旋律/和声/节奏构成自洽系统，并在歌曲进程中产生可追踪的演变。'}
+    ]
+  },
+  {
+    key:'lyric', name:'作词', weight:0.20,
+    hint:'例如：第二段主歌视角从第一人称偏移到第三人称，使"离开"这一动作获得了旁观者的距离感',
+    bands:[
+      {max:2.9, label:'不合格',     desc:'语病明显，或意象堆叠而无论证性关联，或无足够文本量。'},
+      {max:4.9, label:'扁平',       desc:'通顺但意象停留在陈词层面；押韵优先于语义，句意被迫扭曲。'},
+      {max:6.4, label:'意图清晰',   desc:'无逻辑断裂，词汇基本准确，但缺乏唯一性——任意同主题歌曲可替换。'},
+      {max:7.9, label:'有修辞策略', desc:'存在可辨识的修辞策略；文本脱离旋律后仍可独立阅读并产生意义。'},
+      {max:8.9, label:'个人印记',   desc:'词汇在语义与音韵两层同时服务表达；文本结构与歌曲结构形成呼应或张力。'},
+      {max:10,  label:'诗学密度',   desc:'意义在反复聆听中不会被穷尽。'}
+    ]
+  },
+  {
+    key:'arrange', name:'编曲', weight:0.20,
+    hint:'例如：第二段副歌进入时铜管声部在左声道填充了人声休止处的空拍，产生预期的情绪抬升',
+    bands:[
+      {max:2.9, label:'不匹配',     desc:'器乐配置与风格冲突；声部密度失控；编曲为未经思索的默认选项。'},
+      {max:4.9, label:'功能正确',   desc:'乐器进出机械，缺乏对情绪的主动塑造。'},
+      {max:6.4, label:'层次清晰',   desc:'声部与动态合理，但全曲不产生任何"事件"。'},
+      {max:7.9, label:'有修辞功能', desc:'配器增减标记段落转换；至少一处器乐决策具有可辨识的作者性。'},
+      {max:8.9, label:'独立可听',   desc:'剥离人声后仍可独立聆听并保持结构完整。'},
+      {max:10,  label:'三位一体',   desc:'与作曲、演唱不可分割；任何声部调整都会破坏整体平衡。'}
+    ]
+  },
+  {
+    key:'vocal', name:'演唱', weight:0.20,
+    hint:'例如：末段副歌将"我"字延迟了十六分音符进入，与鼓组形成错位，产生了迟疑的表现效果',
+    bands:[
+      {max:2.9, label:'系统性失误', desc:'音准系统性偏离（非风格化）；气息断裂；咬字影响语义传达。'},
+      {max:4.9, label:'无表现力',   desc:'能完成旋律但动态压缩在极窄区间；与编曲情绪走向脱节。'},
+      {max:6.4, label:'准确但无增益',desc:'音准节奏准确、气息稳定，但未给歌曲增加任何超出乐谱的信息。'},
+      {max:7.9, label:'有意识偏离', desc:'有可辨识的音色特征；至少一处对原旋律的有意偏离产生了可论证的效果。'},
+      {max:8.9, label:'结构性元素', desc:'演唱处理的变化本身就是歌曲发展的推动力。'},
+      {max:10,  label:'不可替代',   desc:'脱离该演唱，乐谱无法传递同等信息量。'}
+    ]
+  },
+  {
+    key:'prod', name:'制作', weight:0.10,
+    hint:'例如：人声刻意保留干声，混响仅施加于和声堆叠层，制造了主唱"贴近耳边"的私密感',
+    bands:[
+      {max:2.9, label:'技术缺陷',   desc:'可听的削波、相位抵消、底噪；频段严重失衡。'},
+      {max:4.9, label:'扁平',       desc:'无技术错误，但混音空间扁平；动态被过度压缩，失去乐句力度对比。'},
+      {max:6.4, label:'合格底线',   desc:'频段平衡、声场合理、响度合规；但制作决策不产生审美信息。'},
+      {max:7.9, label:'有空间策略', desc:'混音具有可辨识的空间策略，且该策略服务于歌曲意图。'},
+      {max:8.9, label:'审美对象',   desc:'声音的空间属性与动态轮廓本身成为可讨论的审美对象。'},
+      {max:10,  label:'不可再改',   desc:'精度与一致性达到"不可再改"的状态。'}
+    ]
+  }
+];
+
+/* ============================================================
+   状态
+   ============================================================ */
+const state = {};
+DIMS.forEach(d => state[d.key] = { score:5.0, excluded:false, evidence:'' });
+const refs = {};
+
+/* ============================================================
+   工具函数
+   ============================================================ */
+function scoreColor(v){
+  if (v < 4.0) return '#e5534b';
+  if (v < 5.5) return '#e07a3c';
+  if (v < 6.5) return '#d9b23c';
+  if (v < 7.5) return '#a8c93c';
+  if (v < 8.5) return '#3aa76d';
+  return '#2fc4b2';
+}
+function gradeOf(t){
+  if (t < 4.0) return {g:'F', label:'不可发行级 · 存在结构性缺陷',        color:'#e5534b'};
+  if (t < 5.5) return {g:'D', label:'工业化流水线 · 合格但无审美增值',    color:'#e07a3c'};
+  if (t < 6.5) return {g:'C', label:'有明确意图，但整体未兑现',           color:'#d9b23c'};
+  if (t < 7.5) return {g:'B', label:'两个以上维度具作者性 · 值得讨论',    color:'#a8c93c'};
+  if (t < 8.5) return {g:'A', label:'三个以上维度高水准 · 维度间有机互动', color:'#3aa76d'};
+  return {g:'S', label:'各维度接近上限 · 协同超越部分之和',               color:'#2fc4b2'};
+}
+function bandOf(dim, v){
+  return dim.bands.find(b => v <= b.max) || dim.bands[dim.bands.length-1];
+}
+function paintRange(input, value){
+  const c = scoreColor(value), pct = (value/10)*100;
+  input.style.background =
+    `linear-gradient(90deg, ${c} 0%, ${c} ${pct}%, #2a2f3a ${pct}%, #2a2f3a 100%)`;
+}
+
+/* ============================================================
+   渲染维度卡片
+   ============================================================ */
+const dimContainer = document.getElementById('dimensions');
+
+DIMS.forEach(d => {
+  const el = document.createElement('section');
+  el.className = 'dim';
+  el.innerHTML = `
+    <div class="dim-head">
+      <div>
+        <span class="dim-name">${d.name}</span>
+        <span class="dim-weight">权重 ${Math.round(d.weight*100)}%</span>
+      </div>
+      <div class="dim-score">5.0</div>
+    </div>
+    <input type="range" min="0" max="10" step="0.1" value="5">
+    <div class="band"></div>
+    <textarea rows="2" placeholder="证据（必填）：${d.hint}"></textarea>
+    <label class="na">
+      <input type="checkbox"> 无法充分评估 · 权重按比例分配给其余维度
+    </label>
+    <div class="warn"></div>
+  `;
+
+  const scoreEl  = el.querySelector('.dim-score');
+  const range    = el.querySelector('input[type=range]');
+  const bandEl   = el.querySelector('.band');
+  const ta       = el.querySelector('textarea');
+  const naBox    = el.querySelector('.na input');
+  const warnEl   = el.querySelector('.warn');
+
+  refs[d.key] = { el, scoreEl, range, bandEl, ta, naBox, warnEl };
+
+  range.addEventListener('input', () => {
+    let v = parseFloat(range.value);
+    if (d.key === 'compose' && plagBox.checked && v > 2.0){
+      v = 2.0; range.value = 2.0;
+    }
+    state[d.key].score = v;
+    update();
+  });
+
+  ta.addEventListener('input', () => {
+    state[d.key].evidence = ta.value;
+    update();
+  });
+
+  naBox.addEventListener('change', () => {
+    state[d.key].excluded = naBox.checked;
+    update();
+  });
+
+  dimContainer.appendChild(el);
+});
+
+/* ============================================================
+   一票否决
+   ============================================================ */
+const plagBox = document.getElementById('plag');
+const plagWrap = document.getElementById('plagWrap');
+let prevCompose = 5.0;
+
+plagBox.addEventListener('change', () => {
+  const s = state.compose, r = refs.compose;
+  if (plagBox.checked){
+    prevCompose = s.score;
+    s.score = Math.min(s.score, 2.0);
+    r.range.value = s.score;
+    plagWrap.classList.add('on');
+  } else {
+    s.score = prevCompose;
+    r.range.value = s.score;
+    plagWrap.classList.remove('on');
+  }
+  update();
+});
+
+/* ============================================================
+   结果面板柱状图
+   ============================================================ */
+const barsEl = document.getElementById('bars');
+const barRefs = {};
+DIMS.forEach(d => {
+  const row = document.createElement('div');
+  row.className = 'bar-row';
+  row.innerHTML = `
+    <span class="bar-name">${d.name}</span>
+    <div class="bar-track"><div class="bar-fill" style="width:50%"></div></div>
+    <span class="bar-val">5.0</span>
+  `;
+  barsEl.appendChild(row);
+  barRefs[d.key] = {
+    row,
+    fill: row.querySelector('.bar-fill'),
+    val : row.querySelector('.bar-val')
+  };
+});
+
+/* ============================================================
+   核心更新逻辑
+   ============================================================ */
+const totalScoreEl = document.getElementById('totalScore');
+const gradeBadgeEl = document.getElementById('gradeBadge');
+const gradeLabelEl = document.getElementById('gradeLabel');
+
+function update(){
+  /* ---- 维度卡片 ---- */
+  DIMS.forEach(d => {
+    const s = state[d.key], r = refs[d.key], b = bandOf(d, s.score);
+
+    r.scoreEl.textContent = s.score.toFixed(1);
+    r.scoreEl.style.color = s.excluded ? '#4a5162' : scoreColor(s.score);
+
+    r.bandEl.innerHTML = `<b style="color:${s.excluded?'#4a5162':scoreColor(s.score)}">${b.label}</b><span>${b.desc}</span>`;
+
+    paintRange(r.range, s.score);
+    r.el.classList.toggle('excluded', s.excluded);
+
+    /* 高分需证据 */
+    const needEvidence = s.score >= 7.0 && s.evidence.trim().length < 30;
+    r.warnEl.textContent = '⚠ 该维度高于 7.0，但证据少于 30 字，评分不可审计。';
+    r.warnEl.classList.toggle('show', needEvidence && !s.excluded);
+  });
+
+  /* ---- 权重重新分配 ---- */
+  let totalW = 0;
+  DIMS.forEach(d => { if (!state[d.key].excluded) totalW += d.weight; });
+
+  let total = 0;
+  if (totalW > 0){
+    DIMS.forEach(d => {
+      if (!state[d.key].excluded){
+        total += state[d.key].score * (d.weight / totalW);
+      }
+    });
+  }
+
+  /* ---- 结果面板 ---- */
+  if (totalW > 0){
+    totalScoreEl.textContent = total.toFixed(2);
+    const g = gradeOf(total);
+    totalScoreEl.style.color = g.color;
+    gradeBadgeEl.textContent = g.g;
+    gradeBadgeEl.style.background = g.color + '22';
+    gradeBadgeEl.style.color = g.color;
+    gradeLabelEl.textContent = g.label;
+  } else {
+    totalScoreEl.textContent = '—';
+    totalScoreEl.style.color = '#4a5162';
+    gradeBadgeEl.textContent = '—';
+    gradeBadgeEl.style.background = 'transparent';
+    gradeBadgeEl.style.color = '#4a5162';
+    gradeLabelEl.textContent = '全部维度已标记为无法评估';
+  }
+
+  /* ---- 柱状图 ---- */
+  DIMS.forEach(d => {
+    const s = state[d.key], b = barRefs[d.key];
+    b.fill.style.width = (s.score * 10) + '%';
+    b.fill.style.background = s.excluded ? '#333a47' : scoreColor(s.score);
+    b.val.textContent = s.excluded ? '—' : s.score.toFixed(1);
+    b.row.classList.toggle('excluded', s.excluded);
+  });
+}
+
+/* ============================================================
+   导出报告
+   ============================================================ */
+function buildMarkdown(){
+  const name   = document.getElementById('songName').value.trim() || '（未填写歌名）';
+  const artist = document.getElementById('artist').value.trim();
+  const year   = document.getElementById('year').value.trim();
+
+  const meta = [name];
+  if (artist) meta.push('艺术家：' + artist);
+  if (year)   meta.push('发行年份：' + year);
+
+  let md = `**歌曲：${meta.join(' | ')}**\n\n`;
+
+  if (plagBox.checked){
+    md += `> ⚠ 作曲重合判定已触发（一票否决），作曲封顶 2.0。\n\n`;
+  }
+
+  DIMS.forEach(d => {
+    const s = state[d.key];
+    const b = bandOf(d, s.score);
+    if (s.excluded){
+      md += `**${d.name}：N/A**（无法充分评估，权重已按比例分配）\n\n`;
+    } else {
+      md += `**${d.name}：${s.score.toFixed(1)}/10** — ${b.label}\n`;
+      md += `- 证据：${s.evidence.trim() || '（未填写）'}\n\n`;
+    }
+  });
+
+  let totalW = 0;
+  DIMS.forEach(d => { if (!state[d.key].excluded) totalW += d.weight; });
+  let total = 0;
+  if (totalW > 0){
+    DIMS.forEach(d => {
+      if (!state[d.key].excluded) total += state[d.key].score * (d.weight / totalW);
+    });
+    const g = gradeOf(total);
+    md += `**总分：${total.toFixed(2)} | 等级：${g.g}（${g.label}）**\n\n`;
+  } else {
+    md += `**总分：— | 等级：—**\n\n`;
+  }
+
+  const verdict = document.getElementById('verdict').value.trim();
+  md += `**核心判断：** ${verdict || '（未填写）'}\n`;
+
+  return md;
+}
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const nameInput = document.getElementById('songName');
+  if (!nameInput.value.trim()){
+    nameInput.classList.add('err');
+    nameInput.focus();
+    setTimeout(() => nameInput.classList.remove('err'), 1600);
+    return;
+  }
+
+  const md = buildMarkdown();
+  const btn = document.getElementById('copyBtn');
+  try{
+    await navigator.clipboard.writeText(md);
+    btn.textContent = '✓ 已复制';
+  } catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = md;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ 已复制';
+  }
+  setTimeout(() => btn.textContent = '复制报告', 1500);
+});
+
+/* ============================================================
+   重置
+   ============================================================ */
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('清空当前所有评分与文本？')) return;
+
+  ['songName','artist','year','verdict'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  plagBox.checked = false;
+  plagWrap.classList.remove('on');
+
+  DIMS.forEach(d => {
+    const s = state[d.key], r = refs[d.key];
+    s.score = 5.0; s.excluded = false; s.evidence = '';
+    r.range.value = 5;
+    r.ta.value = '';
+    r.naBox.checked = false;
+  });
+
+  window.scrollTo({top:0, behavior:'smooth'});
+  update();
+});
+
+/* ============================================================
+   初始化
+   ============================================================ */
+update();
+</script>
+</body>
+</html>
